@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>A*</title>
+
+  <link rel='stylesheet' href='main.css'>
+</head>
+<body>
+
+<div id='root'>
+  <div id='gridSelectContainer'>
+    <span>Select map: </span>
+    <select id='gridSelect' title='Grid' onchange='changeGrid()'>
+      <option value='volcano'>Volcano</option>
+      <option value='1-1'>Simple 1</option>
+      <option value='1-2'>Simple 2</option>
+      <option value='1-3'>Simple 3</option>
+      <option value='1-4'>Simple 4</option>
+      <option value='2-1'>Advanced 1</option>
+      <option value='2-2'>Advanced 2</option>
+      <option value='2-3'>Advanced 3</option>
+      <option value='2-4'>Advanced 4</option>
+    </select>
+  </div>
+
+  <div id='mainCanvasContainer'>
+    <canvas id='mainCanvas'></canvas>
+  </div>
+</div>
+
+<script type='text/javascript' src='classes/Node.js'></script>
+<script type='text/javascript' src='classes/Grid.js'></script>
+<script type='text/javascript' src='classes/GridDrawing.js'></script>
+
+<script type='text/javascript' src='grid-inputs/volcano.js'></script>
+<script type='text/javascript' src='grid-inputs/simple-grids.js'></script>
+<script type='text/javascript' src='grid-inputs/advanced-grids.js'></script>
+
+
+<script>
+
+  function logNodes(nodes, count, keys) {
+    // Used purely for debugging
+
+    let outPut = count ? nodes.length.toString()+': \n' : '';
+
+    nodes.forEach( (node) => {
+
+      outPut += '{';
+      for (let key in node) {
+
+        if (!node.hasOwnProperty(key) || keys.indexOf(key) === -1) continue;
+
+        outPut += `${key}: ${node[key]}, `;
+
+      }
+      outPut = outPut.substr(0, outPut.length -2);
+      outPut += '}, \n';
+    });
+    outPut = outPut.substr(0, outPut.length -2);
+  }
+
+  function getMinF(nodes) {
+    // Returns the node with the smallest f value
+    return nodes.reduce( (prev, curr) => {
+      return prev.f < curr.f ? prev : curr;
+    });
+  }
+  function removeNode(nodes, node) {
+    let index = nodes.indexOf(node);
+    if (index > -1) nodes.splice(index, 1);
+    else throw 'Error: unable to remove node';
+  }
+
+  function aStar(grid) {
+
+    let movementCost = 10;
+    let closedSet = []; // We haven't looked at any nodes
+    let openSet = [grid.startNode]; // First look at the start node
+
+
+    while (openSet.length > 0) {
+
+      // Choose the node most likely leading to right path (according to our heuristic)
+      let current = getMinF(openSet);
+
+      if (current === grid.goalNode) {
+        console.log('found it');
+        return grid.pathFromNodeToStart(current);
+      }
+
+      removeNode(openSet, current);
+      closedSet.push(current);
+
+      let neighbours = grid.getNeighbours(current);
+
+      // Remove those already looked at
+      neighbours = neighbours.filter(neighbour => {
+        return closedSet.indexOf(neighbour) === -1;
+      });
+
+      neighbours.forEach(neighbour => {
+
+
+        let tentativeG = current.g + neighbour.movementCost;
+
+        // Make sure neighbour will be looked at
+        if (openSet.indexOf(neighbour) === -1) {
+          openSet.push(neighbour);
+        } else if (tentativeG >= neighbour.g)
+          return; // This is not a better path
+
+        // Going from current to neighbour is the best path
+        neighbour.setParent(current);
+        neighbour.setG(tentativeG);
+        neighbour.setF(neighbour.g + neighbour.heuristic);
+
+      });
+    }
+  }
+
+  let inputGrids = {
+    '1-1': simpleGrid1,
+    '1-2': simpleGrid2,
+    '1-3': simpleGrid3,
+    '1-4': simpleGrid4,
+    '2-1': inputGrid21,
+    '2-2': inputGrid22,
+    '2-3': inputGrid23,
+    '2-4': inputGrid24,
+    'volcano': volcano
+  };
+
+  function changeGrid() {
+    let select = document.getElementById('gridSelect');
+    let selectedValue = select.options[select.selectedIndex].value;
+
+    let selectedInputGrid = inputGrids[selectedValue];
+
+    let colorCodes = selectedInputGrid.colorCodes; // Colors of the chars
+    let charCosts = selectedInputGrid.charCosts; // Costs of moving to these chars
+    let impassableChars = selectedInputGrid.impassableChars; // Chars you can't go through
+
+    /*switch(selected.substr(0, 1)) {
+      case '1':
+        colorCodes = {'.': '#aa925c', '#': '#523915', 'B': '#00ff00', 'A': '#ff0000'};
+        charCosts = {'.': 10, 'A': 10, 'B': 10};
+        impassableChars = ['#'];
+        break;
+      case '2':
+        colorCodes = {'w': '#38449a', 'm': '#67665f', 'f': '#136227', 'g': '#6ec54c', 'r': '#835934', 'B': '#00ff00', 'A': '#ff0000'};
+        charCosts = {'w': 100, 'm': 50, 'f': 10, 'g': 5, 'r': 1, 'A': 1, 'B': 1};
+        impassableChars = [];
+        break;
+    }*/
+
+    let grid = new Grid(selectedInputGrid.gridChars, 'A', 'B', impassableChars, charCosts);
+    let canvas = document.getElementById('mainCanvas');
+
+    let gridDrawing = new GridDrawing(
+      grid,
+      colorCodes,
+      canvas
+    );
+
+    let pathToGoal = aStar(grid);
+    gridDrawing.drawPath(pathToGoal);
+  }
+
+  function setCanvasHeightAndWidth() {
+
+    let canvasContainer = document.getElementById('mainCanvasContainer');
+    let canvas = document.getElementById('mainCanvas');
+
+    canvas.width = canvasContainer.getBoundingClientRect().width;
+    canvas.height = canvasContainer.getBoundingClientRect().height;
+  }
+
+  function init() {
+
+    setCanvasHeightAndWidth();
+    changeGrid();
+  }
+
+  window.onload = function() {
+    init();
+  };
+
+</script>
+
+</body>
+</html>
